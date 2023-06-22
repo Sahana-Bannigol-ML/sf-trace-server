@@ -1,0 +1,233 @@
+version: 2.1
+
+### Import required orbs
+orbs:
+  maven: circleci/maven@1.2.0
+  orbsdk: snappyflow/orbsdk@1.9.28
+  vulnerability-checker: whitesource/vulnerability-checker@19.10.1
+
+### Custom job executor
+
+executors:
+  circlecienv:
+    docker:
+      - image: snappyflowml/circlecienv:v2.0.0
+        auth:
+          username: "${DOCKERUSER}"
+          password: $DOCKERPASSWORD 
+  ubuntumachineimage:
+    machine:
+      image: ubuntu-2204:2022.04.2          
+
+### Workflow parameters
+parameters:
+  run-sfTraceServer-job:
+    type: boolean
+    default: false       
+  tag-gen-command:
+    type: string
+    default: |
+              function parse_yaml {
+                local prefix=$2
+                local s='[[:space:]]*' w='[a-zA-Z0-9_]*' fs=$(echo @|tr @ '\034')
+                sed -ne "s|^\($s\):|\1|" \
+                      -e "s|^\($s\)\($w\)$s:$s[\"']\(.*\)[\"']$s\$|\1$fs\2$fs\3|p" \
+                      -e "s|^\($s\)\($w\)$s:$s\(.*\)$s\$|\1$fs\2$fs\3|p"  $1 |
+                awk -F$fs '{
+                    indent = length($1)/2;
+                    vname[indent] = $2;
+                    for (i in vname) {if (i > indent) {delete vname[i]}}
+                    if (length($3) > 0) {
+                      vn=""; for (i=0; i<indent; i++) {vn=(vn)(vname[i])("_")}
+                      printf("%s%s%s=\"%s\"\n", "'$prefix'",vn, $2, $3);
+                    }
+                }'
+              }
+              ls
+              eval $(parse_yaml "version.yaml")
+              echo "${AppVersion}"
+              GIT_BRANCH=<<pipeline.git.branch>>
+              VERSION=$(echo ${AppVersion} | sed 's/\./-/g')
+              a=${GIT_BRANCH}-${VERSION}
+              TAG=$(echo -n $a | tr -c -s '[:alnum:]' '-')
+              echo $TAG
+              echo "IMAGETAG=$TAG" >> $BASH_ENV
+  helm_url:
+    type: string
+    default: https://github.com/snappyflow/helm-charts.git
+  helm_branch:
+    type: string
+    default: master  
+       
+### Pipeline Jobs
+jobs:
+  ### wait: This job waits untill all other jobs are completed 
+  ### docker tags until other subcomponent workflows are completed.
+  wait:
+    executor: ubuntumachineimage
+    steps:
+      - run:
+           command: |
+             PIPELINE_ID=<< pipeline.id >>
+             while :
+             do
+               curl -XGET https://circleci.com/api/v2/pipeline/$PIPELINE_ID/workflow --header "Circle-Token: $CIRCLE_CI_TOKEN"
+               # Fetch Statuses
+               STATUSES=$(curl -XGET https://circleci.com/api/v2/pipeline/$PIPELINE_ID/workflow --header "Circle-Token: $CIRCLE_CI_TOKEN" | jq -r ".items[] | .status")
+
+               # Fetch Names
+               NAMES=$(curl -XGET https://circleci.com/api/v2/pipeline/$PIPELINE_ID/workflow --header "Circle-Token: $CIRCLE_CI_TOKEN" | jq -r ".items[] | .name")
+
+               declare -a WORKFLOW_STATUSES=($STATUSES)
+               declare -a WORKFLOW_NAMES=($NAMES)
+               declare -A WORKFLOW_ARR
+               DONE=1
+               # Constructiing Workflow array
+               for key in "${!WORKFLOW_NAMES[@]}"; do
+                 WORKFLOW_ARR[${WORKFLOW_NAMES[$key]}]=${WORKFLOW_STATUSES[$key]}
+               done
+               for NAME in "${!WORKFLOW_ARR[@]}"; do
+                 echo "Key: $NAME"
+                 echo "Value: ${WORKFLOW_ARR[$NAME]}"
+                 if [[ ${WORKFLOW_ARR[$NAME]} == failed ]]; then
+                   exit 1
+                 fi
+                 if [[ ${WORKFLOW_ARR[$NAME]} == running ]] && [[ $NAME != release ]]; then
+                   DONE=0
+                 fi
+               done
+               echo $DONE
+               if [[ $DONE != 0 ]]; then
+                 echo "Breaking loop"
+                 break
+               fi
+               sleep 30
+             done
+  
+  ### updateBaseRevision: This job updates the BASE_REVISION env in context
+  updateBaseRevision:
+    executor: ubuntumachineimage
+    steps:
+      - run:
+           command: |
+             BRANCH=<<pipeline.git.branch>>
+             GIT_BRANCH=$(echo -n $BRANCH | tr -c -s '[:alnum:]' '_')
+             curl -XPOST https://circleci.com/api/v2/project/gh/$CIRCLE_PROJECT_USERNAME/$CIRCLE_PROJECT_REPONAME/envvar --header "Content-Type: application/json" --header "Circle-Token: $CIRCLE_CI_TOKEN" --data '{"name":"'"${GIT_BRANCH}"'", "value": "'"${CIRCLE_SHA1}"'"}'
+
+  ### generateTar: This job generates tar file of helm charts.
+  generateTar:
+    executor: ubuntumachineimage
+    steps:
+      - checkout
+      - run: 
+          command: << pipeline.parameters.tag-gen-command >>
+      - run: 
+          command: |
+             echo << pipeline.parameters.helm_url >>
+             echo << pipeline.parameters.helm_branch >>
+      - orbsdk/generate_helm_tar:
+          directory: "charts/sfapm-python3/charts/sftrace"
+          imageversion: "${IMAGETAG}"
+          helmurl: << pipeline.parameters.helm_url >>
+          helmbranch: << pipeline.parameters.helm_branch >>
+          helmupdatedependency: true
+          dockerregistry: "${DOCKERUSER}"
+          chartsdir: /home/circleci/project/helm-charts/charts/sfapm-python3/charts/sftrace
+          component: sftrace
+      - store_artifacts:
+          path: /home/circleci/project/helm-charts/charts/sfapm-python3/charts/sftrace/sftrace.tar.gz
+
+  ### releaseDockerTag: This job updates the docker image tags for all the sub component 
+  ### basically pulls latest, retag it and push again.
+  reTagSubcomponents:
+    executor: ubuntumachineimage
+    steps:
+      - checkout
+      - run: 
+          command: << pipeline.parameters.tag-gen-command >>
+      - orbsdk/retag_subcomponents:
+          dockeruser: "${DOCKERUSER}"
+          dockerpassword: "${DOCKERPASSWORD}"
+          dockerrepository: "${DOCKERUSER}"
+          cluster: non-production
+          imagetag: "${IMAGETAG}"
+          snappyflowversion: "${SFTAG}"
+          gitbranch: <<pipeline.git.branch>>
+          components: 'sftrace-server'      
+  
+  ### sfTraceServerCodeCheck: This job does static code check, 
+  ### lint and stores the result in artifact.
+  sfTraceServerCodeCheck:
+    executor: circlecienv
+    steps:
+      - checkout
+      - orbsdk/static_code_check:
+          directory: .
+      - store_artifacts:
+          path: sftraceserver/sftraceserver.txt
+  
+  ### sfTraceServerBuild: This job builds docker image from current branch
+  ### of the repository for production.
+  sfTraceServerBuild:
+    executor: ubuntumachineimage
+    steps:
+      - checkout
+      - run: 
+          command: << pipeline.parameters.tag-gen-command >>
+      - orbsdk/build_docker:
+          dockeruser: "${DOCKERUSER}"
+          dockerpassword: "${DOCKERPASSWORD}"
+          imagename: sftrace-server
+          imagetag: "${IMAGETAG}"
+          dockerrepository: "${DOCKERUSER}"
+          appdirectory: .
+          gitbranch: <<pipeline.git.branch>>
+
+  ### sfTraceServer: This workflow does following:
+  ### 1. Opensource Vulnerability check.
+  ### 2. Static_Code_Check.
+  ### 3. Build Docker
+  sfTraceServer:
+    when:
+      equal: [true, << pipeline.parameters.run-sfTraceServer-job >>]
+    jobs:
+      - vulnerability-checker/scan:
+          name: Check_Opensource_Vulnerabilities
+          context: Build_Env_Vars
+          filters: *filters
+          directory: ./connectors
+      #- sfTraceServerCodeCheck:
+      #    name: Static_Code_Check
+      #    context: Build_Env_Vars
+      #    filters: *filters
+      #    requires:
+      #      - Check_Opensource_Vulnerabilities
+      - sfTraceServerBuild:
+          name: Build_Docker
+          context: Build_Env_Vars
+          filters: *filters
+          requires:
+            #- Static_Code_Check
+            - Check_Opensource_Vulnerabilities
+
+  ### release:  This workflow does following:
+  ### 1. Wait for other workflows to complete
+  ### 2. Retag Subcomponents, bump version
+  ### 3. generates helm tar
+  ### 4. updates base revision
+  release:
+    jobs:
+      - wait:
+          context: Build_Env_Vars
+      - reTagSubcomponents:
+          context: Build_Env_Vars
+          requires:
+            - wait
+      - generateTar:
+          context: Build_Env_Vars
+          requires:
+            - reTagSubcomponents
+      - updateBaseRevision:
+          context: Build_Env_Vars
+          requires:
+            - generateTar
