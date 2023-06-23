@@ -296,11 +296,13 @@ workflows:
           context: Build_Env_Vars
           requires:
             - reTagSubcomponents
-            - updateMasterHelmCharts
+###         - updateMasterHelmCharts
+            - updateDevelopmentHelmCharts
       - updateBaseRevision:
           context: Build_Env_Vars
           filters: *filters
           requires:
             - reTagSubcomponents
-            - updateMasterHelmCharts
+###         - updateMasterHelmCharts
+            - updateDevelopmentHelmCharts
             - releaseGitTag
