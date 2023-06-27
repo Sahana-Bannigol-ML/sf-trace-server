@@ -7,7 +7,7 @@ setup: true
 ### the path of an updated fileset
 orbs:
   path-filtering: circleci/path-filtering@0.1.1
-  orbsdk: snappyflow/orbsdk@1.9.28
+  orbsdk: snappyflow/orbsdk@1.9.51
 
 ### This allows tags and ignore branches 
 filters: &filters
