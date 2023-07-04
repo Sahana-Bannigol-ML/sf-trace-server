@@ -276,7 +276,6 @@ workflows:
           context: Build_Env_Vars
           filters: *filters
           requires:
-            - wait   
             - Verifying_Approver                
       - updateMasterHelmCharts:
           context: Build_Env_Vars
@@ -287,8 +286,8 @@ workflows:
           context: Build_Env_Vars
           filters: *filters
           requires:
-            - updateMasterHelmCharts
-            - reTagSubcomponents                                 
+            - reTagSubcomponents            
+            - updateMasterHelmCharts                               
       - releaseGitTag:
           context: Build_Env_Vars
           requires:
