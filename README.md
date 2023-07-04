@@ -151,7 +151,7 @@ To build docker images from source, run:
 PLATFORMS=linux/amd64 mage -v package
 ```
 
-When complete, docker images can be found through the local docker daemon and at `build/distributions/apm-server-*-linux-amd64.docker.tar.gz`.
+When complete, docker images can be found through the local docker daemon and at `build/distributions/apm-server-*-linux-amd64.docker.tar.gz`
 
 When building images for testing pre-release versions, we recommend setting `SNAPSHOT=true` in the build environment, to
  clearly indicate the packages are not for a specific release.
