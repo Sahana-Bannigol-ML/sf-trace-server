@@ -130,25 +130,25 @@ jobs:
   
   ### updateMasterHelmcharts: This job updates the master branch of helm charts with updated docker image 
   ### tags. Operates on master branch.
-    updateMasterHelmcharts:
-       executor: ubuntumachineimage
-       steps:
-         - checkout
-         - run: 
-             command: << pipeline.parameters.tag-gen-command >>
-         - run:
-             command: |
-               URL=https://${GITTOKEN}@github.com/snappyflow/helm-charts.git
-               echo "HELMURL=$URL" >> $BASH_ENV
-               pwd
-         - orbsdk/update_helm_charts:
-             gittoken: "${GITTOKEN}"
-             gituser: "${GITUSER}"
-             directory: "charts/sfapm-python3/charts/sftrace"
-             imageversion: "${IMAGETAG}"
-             gitbranch: "master"
-             helmurl: "${HELMURL}"   
-  ### updateHelmCharts: This job updates the development branch of helm charts with updated docker image 
+  updateMasterHelmcharts:
+      executor: ubuntumachineimage
+      steps:
+        - checkout
+        - run: 
+            command: << pipeline.parameters.tag-gen-command >>
+        - run:
+            command: |
+              URL=https://${GITTOKEN}@github.com/snappyflow/helm-charts.git
+              echo "HELMURL=$URL" >> $BASH_ENV
+              pwd
+        - orbsdk/update_helm_charts:
+            gittoken: "${GITTOKEN}"
+            gituser: "${GITUSER}"
+            directory: "charts/sfapm-python3/charts/sftrace"
+            imageversion: "${IMAGETAG}"
+            gitbranch: "master"
+            helmurl: "${HELMURL}"   
+  ### updateDevelopmentHelmCharts: This job updates the development branch of helm charts with updated docker image 
   ### tags. Operates on development branch.
   updateDevelopmentHelmcharts:
     executor: ubuntumachineimage
