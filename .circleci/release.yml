@@ -282,21 +282,18 @@ workflows:
           context: Build_Env_Vars
           filters: *filters
           requires:
-            - Verifying_Approver
             - reTagSubcomponents
       - updateDevelopmentHelmCharts:
           context: Build_Env_Vars
           filters: *filters
           requires:
             - updateMasterHelmCharts
-            - Verifying_Approver
             - reTagSubcomponents                                 
       - releaseGitTag:
           context: Build_Env_Vars
           requires:
             - reTagSubcomponents
             - updateMasterHelmCharts
-            - updateDevelopmentHelmCharts
       - updateBaseRevision:
           context: Build_Env_Vars
           filters: *filters
