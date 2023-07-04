@@ -128,9 +128,9 @@ jobs:
                sleep 30
              done
   
-  ### updateMasterHelmCharts: This job updates the master branch of helm charts with updated docker image 
+  ### updateMasterHelmcharts: This job updates the master branch of helm charts with updated docker image 
   ### tags. Operates on master branch.
-    updateMasterHelmCharts:
+    updateMasterHelmcharts:
        executor: ubuntumachineimage
        steps:
          - checkout
@@ -150,7 +150,7 @@ jobs:
              helmurl: "${HELMURL}"   
   ### updateHelmCharts: This job updates the development branch of helm charts with updated docker image 
   ### tags. Operates on development branch.
-  updateDevelopmentHelmCharts:
+  updateDevelopmentHelmcharts:
     executor: ubuntumachineimage
     steps:
       - checkout
@@ -277,27 +277,27 @@ workflows:
           filters: *filters
           requires:
             - Verifying_Approver                
-      - updateMasterHelmCharts:
+      - updateMasterHelmcharts:
           context: Build_Env_Vars
           filters: *filters
           requires:
             - reTagSubcomponents
-      - updateDevelopmentHelmCharts:
+      - updateDevelopmentHelmcharts:
           context: Build_Env_Vars
           filters: *filters
           requires:
             - reTagSubcomponents            
-            - updateMasterHelmCharts                               
+            - updateMasterHelmcharts                               
       - releaseGitTag:
           context: Build_Env_Vars
           requires:
             - reTagSubcomponents
-            - updateMasterHelmCharts
+            - updateMasterHelmcharts
       - updateBaseRevision:
           context: Build_Env_Vars
           filters: *filters
           requires:
             - reTagSubcomponents
-            - updateMasterHelmCharts
-            - updateDevelopmentHelmCharts
+            - updateMasterHelmcharts
+            - updateDevelopmentHelmcharts
             - releaseGitTag
