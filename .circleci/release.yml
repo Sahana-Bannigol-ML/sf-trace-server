@@ -130,7 +130,7 @@ jobs:
   
   ### updateMasterHelmCharts: This job updates the master branch of helm charts with updated docker image 
   ### tags. Operates on master branch.
-     updateMasterHelmCharts:
+    updateMasterHelmCharts:
        executor: ubuntumachineimage
        steps:
          - checkout
@@ -278,13 +278,13 @@ workflows:
           requires:
             - wait   
             - Verifying_Approver                
-         - updateMasterHelmCharts:
-             context: Build_Env_Vars
-             filters: *filters
-             requires:
-               - wait
-               - Verifying_Approver
-               - reTagSubcomponents
+      - updateMasterHelmCharts:
+          context: Build_Env_Vars
+          filters: *filters
+          requires:
+            - wait
+            - Verifying_Approver
+            - reTagSubcomponents
       - updateDevelopmentHelmCharts:
           context: Build_Env_Vars
           filters: *filters
