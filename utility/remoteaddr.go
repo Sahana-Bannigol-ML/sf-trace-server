@@ -24,9 +24,9 @@ import (
 )
 
 var parseHeadersInOrder = []func(http.Header) string{
+	parseXForwardedFor,
 	parseForwarded,
 	parseXRealIP,
-	parseXForwardedFor,
 }
 
 // RemoteAddr returns the remote address for the HTTP request.
