@@ -190,7 +190,7 @@ workflows:
   ### 3. Build Docker
   sfTraceServer:
     when:
-      equal: [true, << pipeline.parameters.run   -sfTraceServer-job >>]
+      equal: [true, << pipeline.parameters.run-sfTraceServer-job >>]
     jobs:
       - vulnerability-checker/scan:
           name: Check_Opensource_Vulnerabilities
