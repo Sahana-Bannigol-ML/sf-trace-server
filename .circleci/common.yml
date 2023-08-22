@@ -183,48 +183,49 @@ jobs:
           appdirectory: .
           gitbranch: <<pipeline.git.branch>>
 
-  ### sfTraceServer: This workflow does following:
-  ### 1. Opensource Vulnerability check.
-  ### 2. Static_Code_Check.
-  ### 3. Build Docker
-  sfTraceServer:
-    when:
-      equal: [true, << pipeline.parameters.run-sfTraceServer-job >>]
-    jobs:
-      - vulnerability-checker/scan:
-          name: Check_Opensource_Vulnerabilities
-          context: Build_Env_Vars
-          directory: ./connectors
-      #- sfTraceServerCodeCheck:
-      #    name: Static_Code_Check
-      #    context: Build_Env_Vars
-      #    requires:
-      #      - Check_Opensource_Vulnerabilities
-      - sfTraceServerBuild:
-          name: Build_Docker
-          context: Build_Env_Vars
-          requires:
-            #- Static_Code_Check
-            - Check_Opensource_Vulnerabilities
-
-  ### release:  This workflow does following:
-  ### 1. Wait for other workflows to complete
-  ### 2. Retag Subcomponents, bump version
-  ### 3. generates helm tar
-  ### 4. updates base revision
-  release:
-    jobs:
-      - wait:
-          context: Build_Env_Vars
-      - reTagSubcomponents:
-          context: Build_Env_Vars
-          requires:
-            - wait
-      - generateTar:
-          context: Build_Env_Vars
-          requires:
-            - reTagSubcomponents
-      - updateBaseRevision:
-          context: Build_Env_Vars
-          requires:
-            - generateTar
+  workflows:  
+    ### sfTraceServer: This workflow does following:
+    ### 1. Opensource Vulnerability check.
+    ### 2. Static_Code_Check.
+    ### 3. Build Docker
+    sfTraceServer:
+      when:
+        equal: [true, << pipeline.parameters.run  -sfTraceServer-job >>]
+      jobs:
+        - vulnerability-checker/scan:
+            name: Check_Opensource_Vulnerabilities
+            context: Build_Env_Vars
+            directory: ./connectors
+        #- sfTraceServerCodeCheck:
+        #    name: Static_Code_Check
+        #    context: Build_Env_Vars
+        #    requires:
+        #      - Check_Opensource_Vulnerabilities
+        - sfTraceServerBuild:
+            name: Build_Docker
+            context: Build_Env_Vars
+            requires:
+              #- Static_Code_Check
+              - Check_Opensource_Vulnerabilities
+  
+    ### release:  This workflow does following:
+    ### 1. Wait for other workflows to complete
+    ### 2. Retag Subcomponents, bump version
+    ### 3. generates helm tar
+    ### 4. updates base revision
+    release:
+      jobs:
+        - wait:
+            context: Build_Env_Vars
+        - reTagSubcomponents:
+            context: Build_Env_Vars
+            requires:
+              - wait
+        - generateTar:
+            context: Build_Env_Vars
+            requires:
+              - reTagSubcomponents
+        - updateBaseRevision:
+            context: Build_Env_Vars
+            requires:
+              - generateTar    
