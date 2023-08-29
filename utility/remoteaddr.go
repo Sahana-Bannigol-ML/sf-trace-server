@@ -24,6 +24,7 @@ import (
 )
 
 var parseHeadersInOrder = []func(http.Header) string{
+	parseXOriginalForwardedFor,
 	parseXForwardedFor,
 	parseForwarded,
 	parseXRealIP,
@@ -32,6 +33,8 @@ var parseHeadersInOrder = []func(http.Header) string{
 // RemoteAddr returns the remote address for the HTTP request.
 //
 // In order:
+//   - if the X-Original-Forwarded-For header is set, then the first value
+//     in the comma-separated list is returned.
 //   - if the X-Forwarded-For header is set, then the first value
 //     in the comma-separated list is returned.
 //   - if the Forwarded header is set, then the first item in the
@@ -88,6 +91,16 @@ func parseXForwardedFor(header http.Header) string {
 			xff = xff[:sep]
 		}
 		return strings.TrimSpace(xff)
+	}
+	return ""
+}
+
+func parseXOriginalForwardedFor(header http.Header) string {
+	if xoff := header.Get("X-Original-Forwarded-For"); xoff != "" {
+		if sep := strings.IndexRune(xoff, ','); sep > 0 {
+			xoff = xoff[:sep]
+		}
+		return strings.TrimSpace(xoff)
 	}
 	return ""
 }
