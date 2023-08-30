@@ -132,10 +132,10 @@ jobs:
           helmbranch: << pipeline.parameters.helm_branch >>
           helmupdatedependency: true
           dockerregistry: "${DOCKERUSER}"
-          chartsdir: /home/circleci/project/helm-charts/charts/sfapm-python3/charts/sftrace
+          chartsdir: /home/circleci/project/helm-charts/charts/sfapm-python3/charts
           component: sftrace
       - store_artifacts:
-          path: /home/circleci/project/helm-charts/charts/sfapm-python3/charts/sftrace/sftrace.tar.gz
+          path: /home/circleci/project/helm-charts/charts/sfapm-python3/charts/sftrace.tar.gz
 
   ### releaseDockerTag: This job updates the docker image tags for all the sub component 
   ### basically pulls latest, retag it and push again.
@@ -183,7 +183,8 @@ jobs:
           appdirectory: .
           gitbranch: <<pipeline.git.branch>>
 
-  ### sfTraceServer: This workflow does following:
+workflows:  
+  ### sfTraceServer: This workflow does followin  :
   ### 1. Opensource Vulnerability check.
   ### 2. Static_Code_Check.
   ### 3. Build Docker
@@ -194,22 +195,19 @@ jobs:
       - vulnerability-checker/scan:
           name: Check_Opensource_Vulnerabilities
           context: Build_Env_Vars
-          filters: *filters
           directory: ./connectors
       #- sfTraceServerCodeCheck:
       #    name: Static_Code_Check
       #    context: Build_Env_Vars
-      #    filters: *filters
       #    requires:
       #      - Check_Opensource_Vulnerabilities
       - sfTraceServerBuild:
           name: Build_Docker
           context: Build_Env_Vars
-          filters: *filters
           requires:
             #- Static_Code_Check
             - Check_Opensource_Vulnerabilities
-
+   
   ### release:  This workflow does following:
   ### 1. Wait for other workflows to complete
   ### 2. Retag Subcomponents, bump version
@@ -230,4 +228,4 @@ jobs:
       - updateBaseRevision:
           context: Build_Env_Vars
           requires:
-            - generateTar
+            - generateTar     
