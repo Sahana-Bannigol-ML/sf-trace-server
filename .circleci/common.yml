@@ -132,10 +132,10 @@ jobs:
           helmbranch: << pipeline.parameters.helm_branch >>
           helmupdatedependency: true
           dockerregistry: "${DOCKERUSER}"
-          chartsdir: /home/circleci/project/helm-charts/charts/sfapm-python3/charts/sftrace
+          chartsdir: /home/circleci/project/helm-charts/charts/sfapm-python3/charts
           component: sftrace
       - store_artifacts:
-          path: /home/circleci/project/helm-charts/charts/sfapm-python3/charts/sftrace/sftrace.tar.gz
+          path: /home/circleci/project/helm-charts/charts/sfapm-python3/charts/sftrace.tar.gz
 
   ### releaseDockerTag: This job updates the docker image tags for all the sub component 
   ### basically pulls latest, retag it and push again.
