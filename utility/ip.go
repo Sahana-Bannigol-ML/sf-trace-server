@@ -42,6 +42,18 @@ func ExtractIPFromHeader(header http.Header) net.IP {
 	return nil
 }
 
+// Identical to ExtractIPFromHeader, but also extracts host information from `X-Original-Forwarded-For` header,
+// with that header taking priority over all others present in the request body.
+func ExtractIPFromHeaderRum(header http.Header) net.IP {
+	for _, parseFn := range parseRumHeadersInOrder {
+		if ip := ParseIP(parseFn(header)); ip != nil {
+			return ip
+		}
+	}
+
+	return nil
+}
+
 // ParseIP returns the IP address parsed from a given input if a valid IP can be extracted. Otherwise returns nil.
 func ParseIP(inp string) net.IP {
 	if inp == "" {

@@ -76,7 +76,7 @@ func decodeContext(input map[string]interface{}, cfg Config, meta *model.Metadat
 		meta.UserAgent.Original = ua
 	}
 	if meta.Client.IP == nil {
-		meta.Client.IP = getHTTPClientIP(http)
+		meta.Client.IP = getHTTPClientIP(http, ctx.Labels)
 	}
 
 	if serviceInp := getObject(input, fieldName("service")); serviceInp != nil {
@@ -124,7 +124,7 @@ func decodeURL(raw common.MapStr, err error) (*model.URL, error) {
 	return &url, err
 }
 
-func getHTTPClientIP(http *model.Http) net.IP {
+func getHTTPClientIP(http *model.Http, labels *model.Labels) net.IP {
 	if http == nil || http.Request == nil {
 		return nil
 	}
@@ -132,8 +132,14 @@ func getHTTPClientIP(http *model.Http) net.IP {
 	// only set for backend events try to first extract an IP address
 	// from the headers, if not possible use IP address from socket
 	// remote_address
-	if ip := utility.ExtractIPFromHeader(http.Request.Headers); ip != nil {
-		return ip
+	if agent, _ := labels.Fields().GetValue("_tag_agent"); agent == "rum" {
+		if ip := utility.ExtractIPFromHeaderRum(http.Request.Headers); ip != nil {
+			return ip
+		}
+	} else {
+		if ip := utility.ExtractIPFromHeader(http.Request.Headers); ip != nil {
+			return ip
+		}
 	}
 	if http.Request.Socket != nil && http.Request.Socket.RemoteAddress != nil {
 		return utility.ParseIP(*http.Request.Socket.RemoteAddress)
