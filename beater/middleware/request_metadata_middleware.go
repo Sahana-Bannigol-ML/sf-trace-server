@@ -29,7 +29,13 @@ func UserMetadataMiddleware() Middleware {
 		return func(c *request.Context) {
 			dec := utility.ManualDecoder{}
 			c.RequestMetadata.UserAgent = dec.UserAgentHeader(c.Request.Header)
-			c.RequestMetadata.ClientIP = utility.ExtractIP(c.Request)
+
+			if c.IsRum {
+				c.RequestMetadata.ClientIP = utility.ExtractIPRUM(c.Request)
+			} else {
+				c.RequestMetadata.ClientIP = utility.ExtractIP(c.Request)
+			}
+
 			h(c)
 		}, nil
 	}
