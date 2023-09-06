@@ -7,7 +7,7 @@ setup: true
 ### the path of an updated fileset
 orbs:
   path-filtering: circleci/path-filtering@0.1.1
-  orbsdk: snappyflow/orbsdk@1.9.51
+  orbsdk: snappyflow/orbsdk@1.9.67
 
 ### This allows tags and ignore branches 
 filters: &filters
@@ -25,6 +25,7 @@ parameters:
     type: string
     default: |
             .* run-sfTraceServer-job true
+            sftrace-server/.* run-sfTraceServerPrometheusExporter-job true
   helm_url:
     type: string
     default: https://github.com/snappyflow/helm-charts.git
