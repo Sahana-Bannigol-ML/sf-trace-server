@@ -188,7 +188,7 @@ jobs:
           imagetag: "${IMAGETAG}"
           snappyflowversion: "${SFTAG}"
           gitbranch: <<pipeline.git.branch>>
-          components: 'sftrace-server'      
+          components: 'sftrace-server sftrace-server-prometheus-exporter'      
   
   ### sfTraceServerCodeCheck: This job does static code check, 
   ### lint and stores the result in artifact.
