@@ -3,7 +3,7 @@ version: 2.1
 ### Import required orbs
 orbs:
   maven: circleci/maven@1.2.0
-  orbsdk: snappyflow/orbsdk@1.9.51
+  orbsdk: snappyflow/orbsdk@1.9.67
   vulnerability-checker: whitesource/vulnerability-checker@19.10.1
 
 ### Filters for branch and tags
@@ -28,6 +28,9 @@ executors:
 ### Pipeline parameters
 parameters:
   run-sfTraceServer-job:
+    type: boolean
+    default: false
+  run-sfTraceServerPrometheusExporter-job:  
     type: boolean
     default: false
   tag-gen-command:
@@ -185,7 +188,7 @@ jobs:
           imagetag: "${IMAGETAG}"
           snappyflowversion: "${SFTAG}"
           gitbranch: <<pipeline.git.branch>>
-          components: 'sftrace-server'      
+          components: 'sftrace-server sftrace-server-prometheus-exporter'      
   
   ### sfTraceServerCodeCheck: This job does static code check, 
   ### lint and stores the result in artifact.
@@ -215,6 +218,40 @@ jobs:
           appdirectory: .
           gitbranch: <<pipeline.git.branch>>
           snappyflowversion: "${SFTAG}"
+
+  ### sfTraceServerPrometheusExporterCodeCheck: This job does static code check, 
+  ### lint and stores the result in artifact.
+  sfTraceServerPrometheusExporterCodeCheck:
+    executor: circlecienv
+    steps:
+      - checkout
+      - run:
+          command: |         
+            mv sftrace-server/metrics_collector/* sftrace-server/
+            ls -lrt sftrace-server
+      - orbsdk/static_code_check:
+          directory: sftrace-server
+      - store_artifacts:
+          path: sftrace-server/sftrace-server.txt
+  
+  ### sfTraceServerPrometheusExporterBuild: This job builds docker image from current branch
+  ### of the repository for production.
+  sfTraceServerPrometheusExporterBuild:
+    executor: ubuntumachineimage
+    steps:
+      - checkout
+      - run: 
+          command: << pipeline.parameters.tag-gen-command >>
+      - orbsdk/build_docker_prod:
+          dockeruser: "${DOCKERUSER}"
+          dockerpassword: "${DOCKERPASSWORD}"
+          imagename: sftrace-server-prometheus-exporter
+          imagetag: "${IMAGETAG}"
+          dockerrepository: "${DOCKERUSER}"
+          appdirectory: sftrace-server
+          gitbranch: <<pipeline.git.branch>>
+          snappyflowversion: "${SFTAG}" 
+
 ### Pipeline Workflows
 workflows:
   ### sfTraceServer: This workflow does following:
@@ -243,6 +280,30 @@ workflows:
           requires:
             #- Static_Code_Check
             - Check_Opensource_Vulnerabilities   
+
+  sfTraceServerPrometheusExporter:
+    when:
+      equal: [true, << pipeline.parameters.run-sfTraceServerPrometheusExporter-job >>]
+    jobs:
+      - vulnerability-checker/scan:
+          name: Check_Opensource_Vulnerabilities
+          context: Build_Env_Vars
+          filters: *filters
+          directory: ./sftrace-server
+      - sfTraceServerPrometheusExporterCodeCheck:
+          name: Static_Code_Check
+          context: Build_Env_Vars
+          filters: *filters
+          requires:
+            - Check_Opensource_Vulnerabilities
+      - sfTraceServerPrometheusExporterBuild:
+          name: Build_Docker_Prod
+          context: Build_Env_Vars
+          filters: *filters
+          requires:
+            - Static_Code_Check
+            - Check_Opensource_Vulnerabilities
+
   ### release:  This workflow does following:
   ### 1. Wait for other workflows to complete
   ### 2. Wait for approver
