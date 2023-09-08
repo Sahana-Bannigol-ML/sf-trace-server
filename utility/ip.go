@@ -31,6 +31,14 @@ func ExtractIP(r *http.Request) net.IP {
 	return ParseIP(r.RemoteAddr)
 }
 
+func ExtractIPRUM(r *http.Request) net.IP {
+	if ip := ExtractIPFromHeaderRum(r.Header); ip != nil {
+		return ip
+	}
+
+	return ParseIP((r.RemoteAddr))
+}
+
 // ExtractIPFromHeader extracts host information from `Forwarded`, `X-Real-IP`, `X-Forwarded-For` headers,
 // in this order. The first valid IP address extracted is returned.
 func ExtractIPFromHeader(header http.Header) net.IP {
@@ -39,6 +47,18 @@ func ExtractIPFromHeader(header http.Header) net.IP {
 			return ip
 		}
 	}
+	return nil
+}
+
+// Identical to ExtractIPFromHeader, but also extracts host information from `X-Original-Forwarded-For` header,
+// with that header taking priority over all others present in the request body.
+func ExtractIPFromHeaderRum(header http.Header) net.IP {
+	for _, parseFn := range parseRumHeadersInOrder {
+		if ip := ParseIP(parseFn(header)); ip != nil {
+			return ip
+		}
+	}
+
 	return nil
 }
 
