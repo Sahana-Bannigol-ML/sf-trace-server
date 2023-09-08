@@ -33,6 +33,12 @@ func TestRemoteAddr(t *testing.T) {
 	}
 	assert.Equal(t, "::1", utility.RemoteAddr(req))
 
+	req.Header.Set("X-Forwarded-For", "client.invalid")
+	assert.Equal(t, "client.invalid", utility.RemoteAddr(req))
+
+	req.Header.Set("X-Forwarded-For", "client.invalid, proxy.invalid")
+	assert.Equal(t, "client.invalid", utility.RemoteAddr(req))
+
 	req.Header.Set("X-Real-IP", "127.1.2.3")
 	assert.Equal(t, "127.1.2.3", utility.RemoteAddr(req))
 
@@ -45,10 +51,4 @@ func TestRemoteAddr(t *testing.T) {
 
 	req.Header.Set("Forwarded", "for=[2001:db8:cafe::17]:4711")
 	assert.Equal(t, "2001:db8:cafe::17", utility.RemoteAddr(req))
-
-	req.Header.Set("X-Forwarded-For", "client.invalid")
-	assert.Equal(t, "client.invalid", utility.RemoteAddr(req))
-
-	req.Header.Set("X-Forwarded-For", "client.invalid, proxy.invalid")
-	assert.Equal(t, "client.invalid", utility.RemoteAddr(req))
 }

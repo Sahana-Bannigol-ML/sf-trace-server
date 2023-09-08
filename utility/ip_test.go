@@ -30,9 +30,10 @@ import (
 )
 
 const (
-	headerForwarded     = "Forwarded"
-	headerXForwardedFor = "X-Forwarded-For"
-	headerXRealIP       = "X-Real-IP"
+	headerForwarded             = "Forwarded"
+	headerXForwardedFor         = "X-Forwarded-For"
+	headerXRealIP               = "X-Real-IP"
+	headerXOriginalForwardedFor = "X-Original-Forwarded-For"
 )
 
 func TestExtractIP(t *testing.T) {
@@ -56,6 +57,32 @@ func TestExtractIP(t *testing.T) {
 
 	req.Header.Set(headerForwarded, "for=[2001:db8:cafe::17]:4711")
 	assert.Equal(t, "2001:db8:cafe::17", utility.ExtractIP(req).String())
+}
+
+func TestExtractIPRUM(t *testing.T) {
+	assert.Nil(t, utility.ExtractIP(&http.Request{}))
+	assert.Nil(t, utility.ExtractIP(&http.Request{RemoteAddr: "invalid"}))
+	assert.Equal(t, "::1", utility.ExtractIP(&http.Request{RemoteAddr: "[::1]:1234"}).String())
+	assert.Equal(t, "192.168.0.1", utility.ExtractIP(&http.Request{RemoteAddr: "192.168.0.1"}).String())
+
+	req := &http.Request{
+		RemoteAddr: "[::1]:1234",
+		Header:     make(http.Header),
+	}
+	req.Header.Set(headerXForwardedFor, "client.invalid")
+	assert.Equal(t, "::1", utility.ExtractIPRUM(req).String())
+
+	req.Header.Set(headerXRealIP, "127.1.2.3")
+	assert.Equal(t, "127.1.2.3", utility.ExtractIPRUM(req).String())
+
+	req.Header.Set(headerForwarded, "for=_secret")
+	assert.Equal(t, "127.1.2.3", utility.ExtractIPRUM(req).String())
+
+	req.Header.Set(headerForwarded, "for=[2001:db8:cafe::17]:4711")
+	assert.Equal(t, "2001:db8:cafe::17", utility.ExtractIPRUM(req).String())
+
+	req.Header.Set(headerXOriginalForwardedFor, "38.60.220.1")
+	assert.Equal(t, "38.60.220.1", utility.ExtractIPRUM(req).String())
 }
 
 func TestExtractIPFromHeader(t *testing.T) {
@@ -96,6 +123,58 @@ func TestExtractIPFromHeader(t *testing.T) {
 				header.Set(k, v)
 			}
 			ip := utility.ExtractIPFromHeader(header)
+			if tc.ip == "" {
+				assert.Nil(t, ip)
+			} else {
+				require.NotNil(t, ip)
+				assert.Equal(t, tc.ip, ip.String())
+			}
+		})
+	}
+}
+
+func TestExtractIPFromHeaderRum(t *testing.T) {
+	for name, tc := range map[string]struct {
+		header map[string]string
+		ip     string
+	}{
+		"no header":                        {},
+		"Invalid-X-Forwarded-For":          {header: map[string]string{headerXForwardedFor: "client.invalid"}},
+		"Invalid-X-Real-IP-Invalid":        {header: map[string]string{headerXRealIP: "client.invalid"}},
+		"Invalid-Forwarded":                {header: map[string]string{headerForwarded: "for=client.invalid"}},
+		"Invalid-X-Original-Forwarded-For": {header: map[string]string{headerXOriginalForwardedFor: "client.invalid"}},
+		"Invalid-ForwardedMissingFor":      {header: map[string]string{headerForwarded: "128.0.0.5"}},
+		"X-Forwarded-For": {
+			header: map[string]string{headerXForwardedFor: "123.0.0.1"},
+			ip:     "123.0.0.1"},
+		"X-Forwarded-For-First": {
+			header: map[string]string{headerXForwardedFor: "123.0.0.1, 127.0.0.1"},
+			ip:     "123.0.0.1"},
+		"X-Real-IP": {
+			header: map[string]string{headerXRealIP: "123.0.0.1:6060"},
+			ip:     "123.0.0.1"},
+		"X-Real-IP-Fallback": {
+			header: map[string]string{headerXRealIP: "invalid", headerXForwardedFor: "182.0.0.9"},
+			ip:     "182.0.0.9"},
+		"Forwarded": {
+			header: map[string]string{headerForwarded: "for=[2001:db8:cafe::17]:4711"},
+			ip:     "2001:db8:cafe::17"},
+		"Forwarded-Fallback": {
+			header: map[string]string{headerForwarded: "invalid", headerXForwardedFor: "182.0.0.9"},
+			ip:     "182.0.0.9"},
+		"Forwarded-Fallback2": {
+			header: map[string]string{headerForwarded: "invalid", headerXRealIP: "182.0.0.9"},
+			ip:     "182.0.0.9"},
+		"X-Original-Forwarded-For": {
+			header: map[string]string{headerXOriginalForwardedFor: "192.169.56.101"},
+			ip:     "192.169.56.101"},
+	} {
+		t.Run("invalid"+name, func(t *testing.T) {
+			header := make(http.Header)
+			for k, v := range tc.header {
+				header.Set(k, v)
+			}
+			ip := utility.ExtractIPFromHeaderRum(header)
 			if tc.ip == "" {
 				assert.Nil(t, ip)
 			} else {
