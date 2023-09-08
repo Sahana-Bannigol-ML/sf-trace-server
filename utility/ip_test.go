@@ -60,27 +60,34 @@ func TestExtractIP(t *testing.T) {
 }
 
 func TestExtractIPRUM(t *testing.T) {
-	assert.Nil(t, utility.ExtractIP(&http.Request{}))
-	assert.Nil(t, utility.ExtractIP(&http.Request{RemoteAddr: "invalid"}))
-	assert.Equal(t, "::1", utility.ExtractIP(&http.Request{RemoteAddr: "[::1]:1234"}).String())
-	assert.Equal(t, "192.168.0.1", utility.ExtractIP(&http.Request{RemoteAddr: "192.168.0.1"}).String())
+	assert.Nil(t, utility.ExtractIPRUM(&http.Request{}))
+	assert.Nil(t, utility.ExtractIPRUM(&http.Request{RemoteAddr: "invalid"}))
+
+	//	Direct
+	assert.Equal(t, "::1", utility.ExtractIPRUM(&http.Request{RemoteAddr: "[::1]:1234"}).String())
+	assert.Equal(t, "192.168.0.1", utility.ExtractIPRUM(&http.Request{RemoteAddr: "192.168.0.1"}).String())
 
 	req := &http.Request{
 		RemoteAddr: "[::1]:1234",
 		Header:     make(http.Header),
 	}
+
+	//	X-Forwarded-For
 	req.Header.Set(headerXForwardedFor, "client.invalid")
 	assert.Equal(t, "::1", utility.ExtractIPRUM(req).String())
 
+	//	X-Real-IP should override X-Forwarded-For
 	req.Header.Set(headerXRealIP, "127.1.2.3")
 	assert.Equal(t, "127.1.2.3", utility.ExtractIPRUM(req).String())
 
-	req.Header.Set(headerForwarded, "for=_secret")
+	//	Forwarded header should override X-Forwarded-For and X-Real-IP
+	req.Header.Set(headerForwarded, "for=_secret") //	invalid, fall back
 	assert.Equal(t, "127.1.2.3", utility.ExtractIPRUM(req).String())
 
 	req.Header.Set(headerForwarded, "for=[2001:db8:cafe::17]:4711")
 	assert.Equal(t, "2001:db8:cafe::17", utility.ExtractIPRUM(req).String())
 
+	//	X-Original-Forwarded-For should override all others
 	req.Header.Set(headerXOriginalForwardedFor, "38.60.220.1")
 	assert.Equal(t, "38.60.220.1", utility.ExtractIPRUM(req).String())
 }
