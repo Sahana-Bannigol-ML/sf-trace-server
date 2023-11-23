@@ -329,7 +329,7 @@ workflows:
           filters: *filters
           workflowid: ${CIRCLE_WORKFLOW_ID}
           ccitoken: ${CIRCLE_CI_TOKEN}
-          approvers: 'Aman-Singh-ML Pradeep-G-ML Srivathsa-Mugalodi-ML Asraf-Khan-ML Sai-Devireddy-ML Nagarjuna-B-ML'
+          approvers: 'Srivathsa-Mugalodi-ML Asraf-Khan-ML Sai-Devireddy-ML Nagarjuna-B-ML Lakshanya-M-ML'
           requires:
             - wait
             - Waiting_For_Approval            
